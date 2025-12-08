@@ -1,28 +1,26 @@
-import os
 from flask import Flask, request
-import requests
+import telebot
+import os
 
-TOKEN = os.environ.get("BOT_TOKEN")
-TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+TOKEN = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN, threaded=False)
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "Bot is running!"
-
-@app.route(f"/webhook/{TOKEN}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json()
+    if request.headers.get('content-type') == 'application/json':
+        json_str = request.data.decode("UTF-8")
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return "OK", 200
+    else:
+        return "Unsupported Media Type", 415
 
-    if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
-        
-        # Simple reply logic:
-        reply = f"Your message was: {text}"
-        
-        payload = {"chat_id": chat_id, "text": reply}
-        requests.post(TELEGRAM_URL, json=payload)
+@bot.message_handler(commands=["start"])
+def start(message):
+    bot.reply_to(message, "Your English Academy bot is live! 🎉")
 
-    return "OK"
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
+
